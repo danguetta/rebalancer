@@ -15,6 +15,8 @@ As a side benefit, the code also provides a convenient interface to access the e
 
 If this sounds very similar to what RoboAdvisors like [Wealthfront](https://www.wealthfront.com/) or [Betterment](https://www.betterment.com/) do, this is no coincidence - I started on these platforms, and then developed this script as a way to transition away from them and do this rebalancing myself.
 
+**Note that I am the furthest thing from a financial adviser or investment professional, and this code comes as-is with no guarantees. For all I know, it's completely wrong, so check the code carefully before using it yourself.**
+
 # Quickstart guide
 
 Begin by importing the rebalancer code.
