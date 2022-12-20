@@ -1630,14 +1630,15 @@ class Rebalancer:
         
         # This one's a little more complicated; we're going to go through
         # every SECURITY, not lot, and check whether this security meets
-        # four tests:
+        # three tests:
         #   - The security is not in the do_not_sell list
-        #   - The total gain for that security is <= MAX_GAIN_TO_SELL
         #   - We have identified a security to buy in this asset class
         #   - The badness of the security is > the badness of the security
         #     we're buying in that asset class OR the security is not in our
         #     target portfolio
-        # If we pass the test, then we sell this security at a gain
+        # If we pass the test, then we look at the lots of that security in
+        # ascending order of gain. Sell all the lots with gains until the
+        # cumulative gain (not offset by losses) reaches MAX_GAIN_TO_SELL
         
         for row_n, row in self._account.df_positions.iterrows():
             symbol     = row.name
@@ -1646,21 +1647,34 @@ class Rebalancer:
             badness    = self._target_portfolio.find_security(symbol)['badness'] 
             
             if (      (row.name not in do_not_sell)
-                  and (row.lots_gain <= self._MAX_GAIN_TO_SELL)
-                  and (self._buys[assetclass]['security'] is not None)
+                  and (    (assetclass == OTHER_NAME)
+                        or (self._buys[assetclass]['security'] is not None) )
                   and (    (assetclass == OTHER_NAME)
                         or (badness is None)
                         or (badness > self._buys[assetclass]['badness']))):
-                # We've identified a security for which we want to sell lots
-                # with gains; record these
-                sells[symbol]['lots'].extend(self._account
-                                                 .df_lots
-                                                 .query(f'(symbol == "{symbol}") and (gain > 0)')
-                                                 .apply(lambda r : {'position_lot_id' : r.position_lot_id,
-                                                                    'quantity'        : r.quantity},
-                                                        axis = 1)
-                                                 .tolist())
-                sells[symbol]['sell_gain'] = True
+                # We've identified a security for which we want to sell gaining lots
+                # if the gain is small enough. Identify those lots
+                gaining_lots = (self._account
+                                    .df_lots
+                                    .query(f'(symbol == "{symbol}") and (gain > 0)')
+                                    .sort_values('gain', ascending=True))
+                
+                # Add the lots until the gains are >= MAX_GAIN_TO_SELL
+                lots_to_sell = 0
+                while gaining_lots.iloc[0:(lots_to_sell+1), :].gain.sum() < self._MAX_GAIN_TO_SELL:
+                    lots_to_sell += 1
+                    
+                    if lots_to_sell == len(gaining_lots):
+                        break
+                
+                sells[symbol]['lots'].extend(gaining_lots.iloc[0:lots_to_sell, :]
+                                                         .apply(lambda r : {'position_lot_id' : r.position_lot_id,
+                                                                            'quantity'        : r.quantity},
+                                                                axis = 1)
+                                                         .tolist())
+                
+                if lots_to_sell > 0:
+                    sells[symbol]['sell_gain'] = True
         
         # Filter down to securities for which
         # we'll sell at least one lot
@@ -2032,8 +2046,9 @@ class Rebalancer:
                          '         this security.\n\n'
                          '  - The security highlighted in <span style="background:lightgreen">green</span> in each section denotes '
                          '    the security that will be **bought** during rebalancing.\n\n'
-                         '  - Any cells highlighted in <span style="background:pink">pink</span> denote tax lots that will be **sold** '
-                         '    during rebalancing. More details on these tax lots are provided in the next section.'))
+                         '  - Any cells highlighted in <span style="background:pink">pink</span> denote assets for which at least some '
+                         '    tax lots that will be **sold** during rebalancing. More details on these tax lots are provided in the '
+                         '    next section.'))
         
         # Step 2a; construct the table
         # ----------------------------

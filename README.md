@@ -116,7 +116,7 @@ The constructor takes the following arguments:
   - `conn` : an `EtradeConnection` object, created above; if you are using the sample portfolio and not connecting to the eTrade API, this can be set to `None` (its default value)
   - `target_portfolio` : a `TargetPortfolio` object, created above; to use the sample portfolio, simply set this to `None` (its default value)
   - `MAX_LOSS_TO_FORGO` (positive float) : a parameter in the [rebalancing algorithm](#the-rebalancing-algorithm). This comes in to play when the most preferred security in an asset class has experienced a loss. Because this is the most preferred security, we'd like to buy it, but this means we can't also sell it to harvet the loss. If magnitude of the loss is less than or equal to this parameter, we will forgo the loss and buy the security. If not, we will sell this one and buy a less desirable security. Default value is 0.
-  - `MAX_GAIN_TO_SELL` (positive float) : a parameter in the [rebalancing algorithm](#the-rebalancing-algorithm). This comes into play when the portfolio contains a less desirable security in a given asset class that has experienced a gain. Because this is a less preferred security, we'd like to sell it and buy a more preferred security instead. Unfortunately, this would mean realizing a tax gain. If the magnitude of the gain that would result from selling the *entire* position of a security is less than or equal to this parameter, it will be sold. If not, it will not. Default value is 0.
+  - `MAX_GAIN_TO_SELL` (positive float) : a parameter in the [rebalancing algorithm](#the-rebalancing-algorithm). This comes into play when the portfolio contains a less desirable security in a given asset class that has experienced a gain. Because this is a less preferred security, we'd like to sell it and buy a more preferred security instead. Unfortunately, this would mean realizing a tax gain. The algorithm will sell lots of that security starting from the one that experienced the least gain to the one that experienced the most until the cumulative gain that needs to be realized is greater or equal to this parameter. Default value is 0.
   - `forced_buys` : the [rebalancing algorithm](#the-rebalancing-algorithm) will attempt to automatically pick the security to buy for each asset class. In some cases, you might want to *force* the algorithm to buy a specific security. To do this, provide a dictionary here in which each key is an asset class (matching the asset class name in the target portfolio) and each value is EITHER a string with a security ticker (in which case this security will be bought to fulfil this asset class) OR `None` (in which case this security will not be bought). Default value is `{}` (i.e., the algorithm picks everything). A few important warnings
      - The forced buy security *must* be in the relevant asset class in the target portfolio.
      - If you specify a forced buy, the algorithm will not check whether buying that security will result in a wash sale; check carefully.
@@ -160,11 +160,11 @@ Begin by identifying all *losing* tax lots to sell. Go through every tax lot - i
   - The security in this tax lot has not been bought in the last 30 days
   - The security in this tax lot has not been designated as a "buy" in the previous step
 
-Next, identify all *gaining* tax lots to sell. To do this, go through every security, and designate the *entire* position of that security as a "sell" if the following conditions are met:
-  - The sum of all gains on all gaining tax lots of that security are less than or equal to the `MAX_GAIN_TO_SELL` parameter
+Next, identify all *gaining* tax lots to sell. To do this, go through every security, and check whether it meets the following three-part test
   - The badness score of that security is greater than the badness score of the security designated as a buy for its asset class in the previous step
   - The security has not been bought in the last 30 days
   - The security has not been designated as a "buy" in the previous step
+If all three tests are met, start selling lots of that security from the one that has experienced the least gain to the most, until the total gain realized is greater or equal to the `MAX_GAIN_TO_SELL` parameter
 
 ## Calculating buy quantities
 
