@@ -571,13 +571,16 @@ class EtradeConnection:
         self._log_message('-----------------------------------------')
         
         # Make sure the response was successful
-        if response.status_code != 200:
+        if response.status_code not in [200, 204]:
             raise ApiQueryError(url, kwargs, response.status_code, response.text)
             
-        # Return the response in json form; make the error more leggible if the json
+        # Return the response in json form; make the error more legible if the json
         # can't be read
         try:
-            return response.json()
+            if response.status_code == 204:
+                return None
+            else:
+                return response.json()
         except:
             raise 'Something wrong happened with the eTrade request; see the log file'
     
@@ -803,20 +806,24 @@ class EtradeConnection:
             params['marker'] = response['marker']
             response = self._query(f'/v1/accounts/{account_id_key}/orders.json',
                                    method = 'GET',
-                                   params = params)['OrdersResponse']
+                                   params = params)
             
-            for t in response['Order']:
-                if t['OrderDetail'][0]['status'] != 'CANCELLED':
-                    order_action = t['OrderDetail'][0]['Instrument'][0]['orderAction']
-                    symbol = t['OrderDetail'][0]['Instrument'][0]['Product']['symbol']
-                    
-                    if order_action == 'BUY':
-                        out['bought'].append(symbol)
-                    elif order_action == 'SELL':
-                        out['sold'].append(symbol)
-                    else:
-                        raise 'Unknown order action found'
-        
+            if response is not None:
+                response == response['OrdersResponse']
+                for t in response['Order']:
+                    if t['OrderDetail'][0]['status'] != 'CANCELLED':
+                        order_action = t['OrderDetail'][0]['Instrument'][0]['orderAction']
+                        symbol = t['OrderDetail'][0]['Instrument'][0]['Product']['symbol']
+                        
+                        if order_action == 'BUY':
+                            out['bought'].append(symbol)
+                        elif order_action == 'SELL':
+                            out['sold'].append(symbol)
+                        else:
+                            raise 'Unknown order action found'
+            else:
+                response = {}
+                
         # Remove duplicates
         out = {i:list(set(out[i])) for i in out}
         
