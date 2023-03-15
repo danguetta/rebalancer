@@ -809,7 +809,7 @@ class EtradeConnection:
                                    params = params)
             
             if response is not None:
-                response == response['OrdersResponse']
+                response = response['OrdersResponse']
                 for t in response['Order']:
                     if t['OrderDetail'][0]['status'] != 'CANCELLED':
                         order_action = t['OrderDetail'][0]['Instrument'][0]['orderAction']
