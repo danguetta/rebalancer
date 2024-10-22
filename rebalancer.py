@@ -1887,7 +1887,7 @@ class Rebalancer:
             df['expected_buy'] = df.buy_quantity * df.current_price
         
             # Calculate the final balance
-            df['final_balance'] = df['expected_balance'] + df['expected_buy'].fillna(0)
+            df['final_balance'] = df['expected_balance'] + df['expected_buy'].astype(float).fillna(0)
             
             # Calculate the final percentage
             rel_rows = df.target_perc.notnull()
@@ -2099,6 +2099,9 @@ class Rebalancer:
         for s in self._account.recent_trades['sold']:
             df.loc[df.symbol == s, '30_days'] += 'S'
         
+        # Sort the table
+        df = df.sort_values(['assetclass', 'badness']).reset_index(drop=True)
+        
         # Step 2b; prepare to format the table
         # ------------------------------------
         
@@ -2111,7 +2114,7 @@ class Rebalancer:
         style = 'border-bottom: 3px solid black'
         last_line_border = [style
                               if df.assetclass[i] != df.assetclass[i+1] else None
-                                 for i in range(len(df)-1)] + [style]
+                                                  for i in range(len(df)-1)] + [style]
                     
         # Because of the way multi-indexes work, the bottom border needs to be
         # on the FIRST line of every asset class for the index; create that list
@@ -2121,7 +2124,7 @@ class Rebalancer:
         
         # We now need to determine how to format the lot gains and lot losses.
         # Losses will be in red and gains will be in green. Any lots that will
-        # be sold will have a light blue background
+        # be sold will have a pink background
         loss_format = []
         for row_n, row in df.iterrows():
             this_format = []
@@ -2147,7 +2150,6 @@ class Rebalancer:
         
         # Step 2c; set the index and select columns
         # -----------------------------------------
-        df = df.sort_values(['assetclass', 'badness'])
         df = df.set_index(['assetclass', 'symbol'])
         df = df[['badness', '30_days', 'quantity',
                     'market_value', 'lots_loss', 'lots_gain']]
